@@ -1,5 +1,4 @@
 from flask import Flask, render_template, request
-from werkzeug.utils import secure_filename
 import sys, os
 
 
@@ -21,7 +20,6 @@ def index():
 def upload():
     file = request.files['inputFile']
     if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
         file.save("uploads\\image.png")
         os.kill(os.getpid(), 9)
         #sys.exit(1)

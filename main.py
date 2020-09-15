@@ -200,3 +200,4 @@ while True: # game
 
 print(f"Player 1 score : {len(maingame.player1tiles)}")
 print(f"Player 2 score : {len(maingame.player2tiles)}")
+os.system("pause")
