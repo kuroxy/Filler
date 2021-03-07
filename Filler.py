@@ -1,140 +1,126 @@
-import termcolor
-import math
+import numpy as np
 import time
-import minimax
+import random
+import math
 
-#board is 8x7
-# colors are : red:0 green:1 yellow:2 blue:3 magenta:4 grey:5
-colorcode = ["red","green","yellow","blue","magenta","grey"]
+# 0     ,1      ,2      ,3      ,4      ,5
+# R     ,L      ,Y      ,B      ,P      ,G
+# red   ,lime   ,yellow ,blue   ,purple ,gray
+# mapsize
+#    8x7
 
-def colorblock(color):
-    color = colorcode[color]
-    print(termcolor.colored("██", color),end="")
-
-
-class Filler(object):
-    def __init__(self,board, counter=0,player1tiles=None, player2tiles=None):
+class Filler():
+    playerpos = ((0,6), (7,0))
+    def __init__(self, board=None, playerturn=None):
         self.board = board
-        self.counter = counter
-
-        self.player1tiles = [(0,6)]
-        if player1tiles:
-            self.player1tiles = player1tiles
-
-        self.player1color = self.board[6][0]   # down-left
+        self.playerturn = playerturn
+        if board is None:
+            self.reset()
 
 
-        self.player2tiles = [(7,0)]
-        if player2tiles:
-            self.player2tiles = player2tiles
-
-        self.player2color = self.board[0][7]   # up-right
-
-    def printboard(self):
-        print('{0:<6d} {1} {2:>6d}'.format(len(self.player1tiles),'||', len(self.player2tiles)))
-        for i in self.board:
-            for j in i:
-                colorblock(j)
-            print()
-
-    def updateboard(self,color,isPlayer1Turn):
-        if isPlayer1Turn:
-            for i in self.player1tiles:  # set color then check
-                self.board[i[1]][i[0]] = color
-                # check
-                if not i[1]==0 and self.board[i[1]-1][i[0]] == color:
-                    app = (i[0],i[1]-1)
-                    if app not in self.player1tiles:
-                        self.player1tiles.append(app)
-
-                if not i[0]== len(self.board[0])-1 and self.board[i[1]][i[0]+1] == color:
-                    app = (i[0]+1,i[1])
-                    if app not in self.player1tiles:
-                        self.player1tiles.append(app)
+    def reset(self, startingplayer=None):
+        self.board = self.createBoard()
+        self.playerturn = startingplayer if startingplayer else random.randrange(0,2)
 
 
-                if not i[1]==len(self.board)-1 and self.board[i[1]+1][i[0]] == color:
-                    app = (i[0],i[1]+1)
-                    if app not in self.player1tiles:
-                        self.player1tiles.append(app)
+    def createBoard(self, boardsize=(8,7)):
+        board = np.zeros((boardsize))
 
-                if not i[0]==0 and self.board[i[1]][i[0]-1] == color:
-                    app = (i[0]-1,i[1])
-                    if app not in self.player1tiles:
-                        self.player1tiles.append(app)
+        for x in range(board.shape[0]):
+            for y in range(board.shape[1]):
+                choices = [0,1,2,3,4,5]
+                if x > 0 and board[x-1][y] in choices:
+                    choices.remove(board[x-1][y]) # left 
+                if y > 0 and board[x][y-1] in choices:
+                    choices.remove(board[x][y-1]) # up
+                board[x][y] = random.choice(choices)
+        return board
 
-        else:
-            for i in self.player2tiles:  # set color\
-                self.board[i[1]][i[0]] = color
-                # check
-                if not i[1]==0 and self.board[i[1]-1][i[0]] == color:
-                    app = (i[0],i[1]-1)
-                    if app not in self.player2tiles:
-                        self.player2tiles.append(app)
 
-                if not i[0]== len(self.board[0])-1 and self.board[i[1]][i[0]+1] == color:
-                    app = (i[0]+1,i[1])
-                    if app not in self.player2tiles:
-                        self.player2tiles.append(app)
+    def getNeigbours(self,visited, pos):
+        if pos[0] > 0:
+            if self.board[pos[0]-1][pos[1]] == self.board[pos[0]][pos[1]] and visited[pos[0]-1][pos[1]] ==0:
+                visited[pos[0]-1][pos[1]] = 1
+                self.getNeigbours(visited, (pos[0]-1,pos[1]))
 
-                if not i[1]==len(self.board)-1 and self.board[i[1]+1][i[0]] == color:
-                    app = (i[0],i[1]+1)
-                    if app not in self.player2tiles:
-                        self.player2tiles.append(app)
+        if pos[0] < self.board.shape[0]-1:
+            if self.board[pos[0]+1][pos[1]] == self.board[pos[0]][pos[1]] and visited[pos[0]+1][pos[1]] ==0:
+                visited[pos[0]+1][pos[1]] = 1
+                self.getNeigbours(visited, (pos[0]+1,pos[1]))
 
-                if not i[0]==0 and self.board[i[1]][i[0]-1] == color:
-                    app = (i[0]-1,i[1])
-                    if app not in self.player2tiles:
-                        self.player2tiles.append(app)
-        self.player1color = self.board[6][0]   # down-left
-        self.player2color = self.board[0][7]   # up-right
-        self.counter+=1
+        if pos[1] > 0:
+            if self.board[pos[0]][pos[1]-1] == self.board[pos[0]][pos[1]] and visited[pos[0]][pos[1]-1] ==0:
+                visited[pos[0]][pos[1]-1] = 1
+                self.getNeigbours(visited, (pos[0],pos[1]-1))
+            
+        if pos[1] < self.board.shape[1]-1:
+            if self.board[pos[0]][pos[1]+1] == self.board[pos[0]][pos[1]] and visited[pos[0]][pos[1]+1] ==0:
+                visited[pos[0]][pos[1]+1] = 1
+                self.getNeigbours(visited, (pos[0],pos[1]+1))
 
-    def copyboard(self):
-        newboard = []
-        for i in self.board:
-            newboard.append(i.copy())
-        return Filler(newboard, self.counter, self.player1tiles.copy(), self.player2tiles.copy())
 
-    def getscore(self):
-        return len(self.player1tiles) - len(self.player2tiles)
+    def countNeighbours(self, pos):
+        visited = np.zeros(self.board.shape)
+        self.getNeigbours(visited,pos)
+        return visited.sum()
+
 
     def evaluation(self):
-        return self.getscore()*(1/self.counter)
+        return self.countNeighbours(self.playerpos[0]) - self.countNeighbours(self.playerpos[1])
+
+
+    def fillNeighbours(self, pos, value):
+        visited = np.zeros(self.board.shape)
+        visited[pos[0]][pos[1]] = 1
+        self.getNeigbours(visited,pos)
+        inverted = np.logical_not(visited)
+        self.board = self.board * inverted + visited*value
+
+
+    def getAvailable(self):
+        values = [0,1,2,3,4,5]
+        values.remove(self.board[self.playerpos[0][0]][self.playerpos[0][1]])  # player 0 value
+        values.remove(self.board[self.playerpos[1][0]][self.playerpos[1][1]])  # player 1 value
+        return values
+
+
+    def turn(self, value):
+        if value in self.getAvailable():
+            self.fillNeighbours(Filler.playerpos[self.playerturn], value)
+            self.playerturn = not self.playerturn
+        else:
+            print("Invalid value")
+
 
     def gameover(self):
-        if len(self.player1tiles) + len(self.player2tiles) == len(self.board)*len(self.board[0]):
+        if self.countNeighbours(self.playerpos[0]) + self.countNeighbours(self.playerpos[1]) == self.board.shape[0]* self.board.shape[1]:
             return True
         return False
 
-    def getmoves(self):
-        moves = []
-        for i in range(6):
-            if i != self.player1color and i != self.player2color:
-                moves.append(i)
-        return moves
 
-def playerinput(inputvalues):
-    inputvalues = [str(i) for i in inputvalues]
-    while True:
-        inp = input()
-        if inp in inputvalues:
-            return int(inp)
+    def boardprint(self):
+        printboard = np.rot90(np.fliplr(self.board))
+        for x in printboard:
+            print(x)
+        print()
 
 
-def bestmove(game, depth, maximizingPlayer):    # returns the move, the score, prediction , time it took
-    now = time.time()
+    def copy(self):
+        return Filler(self.board.copy(), self.playerturn)
 
+
+
+def minimaxMove(game, depth, maximizingPlayer): # fillerclass , depth, True for player 0 else 1
     bestmove = None
     if maximizingPlayer:
         bestscore = -math.inf
     else:
         bestscore = math.inf
 
-    for move in game.getmoves():
-        newboard = game.copyboard()
-        newboard.updateboard(move, maximizingPlayer)
-        score = minimax.minimax(newboard, depth, -math.inf, math.inf, not maximizingPlayer)
+    for move in game.getAvailable():
+        newboard = game.copy()
+        newboard.turn(move)
+        score = minimax(newboard, depth, -math.inf, math.inf, not maximizingPlayer)
 
         if maximizingPlayer:
             if score > bestscore:
@@ -145,79 +131,49 @@ def bestmove(game, depth, maximizingPlayer):    # returns the move, the score, p
                 bestscore = score
                 bestmove = move
 
-    newboard = game.copyboard()
-    newboard.updateboard(bestmove, maximizingPlayer)
-    winscore = minimax.winchance(newboard, depth, -math.inf, math.inf, not maximizingPlayer)
-
-    bottime = time.time() - now
-    return bestmove,bestscore,winscore,bottime
-
-'''
-# colors are : red:0 green:1 yellow:2 blue:3 magenta:4 grey:5
-boardgijs = [[3, 1, 0, 3, 1, 3, 2, 1],
-         [1, 0, 3, 1, 0, 4, 1, 3],
-         [2, 3, 4, 0, 4, 3, 5, 2],
-         [3, 4, 2, 4, 5, 4, 3, 1],
-         [4, 1, 4, 2, 1, 0, 4, 3],
-         [2, 0, 3, 4, 3, 5, 1, 4],
-         [5, 4, 2, 0, 2, 4, 0, 1]]
+    newboard = game.copy()
+    newboard.turn(bestmove)
+    return bestmove,bestscore
 
 
-# colors are : red:0 green:1 yellow:2 blue:3 magenta:4 grey:5
-boardolaf =[[2, 5, 0, 2, 5, 4, 2, 4],
-            [0, 4, 5, 3, 1, 2, 0, 1],
-            [5, 0, 4, 0, 2, 0, 2, 4],
-            [0, 1, 2, 1, 2, 3, 4, 0],
-            [5, 3, 5, 3, 1, 4, 5, 1],
-            [2, 1, 0, 5, 3, 2, 1, 4],
-            [0, 4, 5, 2, 1, 5, 2, 5]]
-
-game = Filler(boardgijs)
-
-humanstarts = False
-humanturn = True
+def minimax(position, depth, alpha, beta, maximizingPlayer):
+    if depth == 0 or position.gameover():
+        return position.evaluation()
 
 
-print(game.getmoves())
-while True:
-    game.printboard()
+    if maximizingPlayer:
+        maxEval = -math.inf
+        for child in position.getAvailable():
+            newboard = position.copy()
+            newboard.turn(child)
+            eval = minimax(newboard, depth-1,alpha,beta, False)
+            maxEval = max(maxEval, eval)
+            alpha = max(alpha, maxEval)
+            if beta <= alpha:
+                break
+        return maxEval
 
-    if humanturn:
-        prstr = []
-        moves = game.getmoves()
-        for i in moves:
-            prstr.append(f"{i} : {colorcode[i]}")
-        print(", ".join(prstr))
-
-        game.updateboard(playerinput(moves), humanstarts)
     else:
-        move,score,points = bestmove(game, 7, not humanstarts)
-        print(f"bot choose {colorcode[move]} with score : {round(score,2)} | time : {round(bottime,3)}")
-        if humanstarts:
-            if points > 0:
-                print(f"Bot is losing by {points} points")
-            elif points < 0:
-                print(f"Bot is wining by {-points} points")
-            else:
-                print("Bot is drawing")
-        else:
-            if points < 0:
-                print(f"Bot is losing by {-points} points")
-            elif points > 0:
-                print(f"Bot is wining by {points} points")
-            else:
-                print("Bot is drawing")
+        minEval = math.inf
+        for child in position.getAvailable():
+            newboard = position.copy()
+            newboard.turn(child)
+            eval = minimax(newboard, depth-1,alpha,beta, True)
+            minEval = min(minEval, eval)
+            beta = min(beta,minEval)
+            if beta <= alpha:
+                break
+        return minEval
 
-        game.updateboard(move, not humanstarts)
 
-    if game.gameover():
+fillergame = Filler()
+fillergame.boardprint()
+while True:
+    move,score = minimaxMove(fillergame, 10 , not fillergame.playerturn)
+    print(f" best move {move} with score {score}")
+    usermove = int(input())
+    fillergame.turn(usermove)
+    fillergame.boardprint()
+
+    if fillergame.gameover():
         break
-
-    humanturn = not humanturn
-    #humanstarts = not humanstarts
-
-print("Game has ended")
-print(f"Player 1 has {len(game.player1tiles)} tiles")
-print(f"Player 2 has {len(game.player2tiles)} tiles")
-print(counter)
-'''
