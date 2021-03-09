@@ -3,7 +3,9 @@ import math
 from PIL import Image
 
 # 0 : red | 1 : green   | 2 : yellow    | 3 : blue   | 4 : purple | 5 : black |
-colorlist = [(192, 64, 77),(147,180,89),(212,191,72),(78,142,203),(104,84,143),(49, 49, 49)]
+
+
+colorlist = [(192, 64, 77),(147,180,89),(212,191,72),(78,142,203),(84,63,129),(70, 70, 70)]
 
 offset = [135,500]
 offset4 = [135,535]
@@ -38,9 +40,7 @@ if __name__ == "__main__":
         themap = getmap(sys.argv[1])
 
 
-        for i in themap:    # prints the map in colorindexes
-            print(",".join(str(j) for j in i))
-
+        print(themap)
         print("---")
 
         mapidstring = "mapid : "

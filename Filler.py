@@ -2,12 +2,22 @@ import numpy as np
 import time
 import random
 import math
+from getmap import getmap
+import sys
+import termcolor
 
 # 0     ,1      ,2      ,3      ,4      ,5
 # R     ,L      ,Y      ,B      ,P      ,G
 # red   ,lime   ,yellow ,blue   ,purple ,gray
 # mapsize
 #    8x7
+
+colorcode = ["red","green","yellow","blue","magenta","grey"]
+
+def colorblock(color):
+    color = colorcode[color]
+    print(termcolor.colored("██", color),end="")
+
 
 class Filler():
     playerpos = ((0,6), (7,0))
@@ -80,7 +90,8 @@ class Filler():
     def getAvailable(self):
         values = [0,1,2,3,4,5]
         values.remove(self.board[self.playerpos[0][0]][self.playerpos[0][1]])  # player 0 value
-        values.remove(self.board[self.playerpos[1][0]][self.playerpos[1][1]])  # player 1 value
+        if self.board[self.playerpos[1][0]][self.playerpos[1][1]] in values:
+            values.remove(self.board[self.playerpos[1][0]][self.playerpos[1][1]])  # player 1 value
         return values
 
 
@@ -100,13 +111,31 @@ class Filler():
 
     def boardprint(self):
         printboard = np.rot90(np.fliplr(self.board))
-        for x in printboard:
-            print(x)
+        for i in printboard:
+            for j in i:
+                colorblock(int(j))
+            print()
+
         print()
 
 
     def copy(self):
         return Filler(self.board.copy(), self.playerturn)
+
+    def loadBoard(self, board, playerstart):
+        self.board = board
+        self.playerturn = playerstart
+
+    def getBoard(self, filename, playerstart):
+        newboard = np.array(getmap(filename))
+        rotatedboard = np.rot90(np.fliplr(newboard))
+        self.loadBoard(rotatedboard, playerstart)
+
+    def loadBoardString(self, mapstring, playerstart):
+        newboard = np.array([ int(i) for i in mapstring])
+        newboard = np.reshape(newboard, (7,8))
+        rotatedboard = np.rot90(np.fliplr(newboard))
+        self.loadBoard(rotatedboard, playerstart)
 
 
 
@@ -166,13 +195,22 @@ def minimax(position, depth, alpha, beta, maximizingPlayer):
         return minEval
 
 
+
 fillergame = Filler()
+if len(sys.argv) == 2:
+        fillergame.getBoard(sys.argv[1], 1)
+
+
 fillergame.boardprint()
 while True:
-    move,score = minimaxMove(fillergame, 10 , not fillergame.playerturn)
-    print(f" best move {move} with score {score}")
-    usermove = int(input())
-    fillergame.turn(usermove)
+    print("-1 for minimax")
+    userin = int(input())
+    if userin == -1:
+        move,score = minimaxMove(fillergame, 7 , not fillergame.playerturn)
+        print(f" best move {move} with score {score}")
+        userin = int(input())
+
+    fillergame.turn(userin)
     fillergame.boardprint()
 
     if fillergame.gameover():
