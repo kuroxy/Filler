@@ -49,29 +49,43 @@ class Filler():
 
     def getNeigbours(self,visited, pos):
         if pos[0] > 0:
-            if self.board[pos[0]-1][pos[1]] == self.board[pos[0]][pos[1]] and visited[pos[0]-1][pos[1]] ==0:
-                visited[pos[0]-1][pos[1]] = 1
-                self.getNeigbours(visited, (pos[0]-1,pos[1]))
+            if visited[pos[0]-1][pos[1]] ==0:
+                if self.board[pos[0]-1][pos[1]] == self.board[pos[0]][pos[1]]:
+                    visited[pos[0]-1][pos[1]] = 1
+                    self.getNeigbours(visited, (pos[0]-1,pos[1]))
+                else:
+                    visited[pos[0]-1][pos[1]] = 2
+                
 
         if pos[0] < self.board.shape[0]-1:
-            if self.board[pos[0]+1][pos[1]] == self.board[pos[0]][pos[1]] and visited[pos[0]+1][pos[1]] ==0:
-                visited[pos[0]+1][pos[1]] = 1
-                self.getNeigbours(visited, (pos[0]+1,pos[1]))
-
+            if visited[pos[0]+1][pos[1]] ==0:
+                if self.board[pos[0]+1][pos[1]] == self.board[pos[0]][pos[1]]:
+                    visited[pos[0]+1][pos[1]] = 1
+                    self.getNeigbours(visited, (pos[0]+1,pos[1]))
+                else:
+                    visited[pos[0]+1][pos[1]] = 2
+                
         if pos[1] > 0:
-            if self.board[pos[0]][pos[1]-1] == self.board[pos[0]][pos[1]] and visited[pos[0]][pos[1]-1] ==0:
-                visited[pos[0]][pos[1]-1] = 1
-                self.getNeigbours(visited, (pos[0],pos[1]-1))
-            
+            if visited[pos[0]][pos[1]-1] ==0:
+                if self.board[pos[0]][pos[1]-1] == self.board[pos[0]][pos[1]]:
+                    visited[pos[0]][pos[1]-1] = 1
+                    self.getNeigbours(visited, (pos[0],pos[1]-1))
+                else:
+                    visited[pos[0]][pos[1]-1] = 2
+
         if pos[1] < self.board.shape[1]-1:
-            if self.board[pos[0]][pos[1]+1] == self.board[pos[0]][pos[1]] and visited[pos[0]][pos[1]+1] ==0:
-                visited[pos[0]][pos[1]+1] = 1
-                self.getNeigbours(visited, (pos[0],pos[1]+1))
+            if visited[pos[0]][pos[1]+1] ==0:
+                if self.board[pos[0]][pos[1]+1] == self.board[pos[0]][pos[1]]:
+                    visited[pos[0]][pos[1]+1] = 1
+                    self.getNeigbours(visited, (pos[0],pos[1]+1))
+                else:
+                    visited[pos[0]][pos[1]+1] = 2
 
 
     def countNeighbours(self, pos):
         visited = np.zeros(self.board.shape)
         self.getNeigbours(visited,pos)
+        visited = visited==1
         return visited.sum()
 
 
@@ -83,6 +97,7 @@ class Filler():
         visited = np.zeros(self.board.shape)
         visited[pos[0]][pos[1]] = 1
         self.getNeigbours(visited,pos)
+        visited = visited==1
         inverted = np.logical_not(visited)
         self.board = self.board * inverted + visited*value
 
@@ -131,12 +146,90 @@ class Filler():
         rotatedboard = np.rot90(np.fliplr(newboard))
         self.loadBoard(rotatedboard, playerstart)
 
+
     def loadBoardString(self, mapstring, playerstart):
         newboard = np.array([ int(i) for i in mapstring])
         newboard = np.reshape(newboard, (7,8))
         rotatedboard = np.rot90(np.fliplr(newboard))
         self.loadBoard(rotatedboard, playerstart)
 
+
+    def getNeigboursColor(self, player):    # player 0 or 1
+        pos = self.playerpos[player]
+        neighbourcolors = []
+        visited = np.zeros(self.board.shape)
+        self.getNeigbours(visited,pos)
+        x,y = np.where(visited==2)
+        av = self.getAvailable()
+
+        for i in range(len(x)):
+            if self.board[x[i]][y[i]] not in neighbourcolors and self.board[x[i]][y[i]] in av:
+                neighbourcolors.append(self.board[x[i]][y[i]])
+        if len(neighbourcolors) ==0:
+            return av
+        return neighbourcolors
+
+    def getNeigboursColorvisi(self, player):    # player 0 or 1
+        pos = self.playerpos[player]
+        visited = np.zeros(self.board.shape)
+        self.getNeigbours(visited,pos)
+
+        return visited
+
+
+
+def beterminimaxMove(game, depth, maximizingPlayer): # fillerclass , depth, True for player 0 else 1
+    bestmove = None
+    if maximizingPlayer:
+        bestscore = -math.inf
+    else:
+        bestscore = math.inf
+
+    for move in game.getNeigboursColor(not maximizingPlayer):
+        newboard = game.copy()
+        newboard.turn(move)
+        score = beterminimax(newboard, depth, -math.inf, math.inf, not maximizingPlayer)
+
+        if maximizingPlayer:
+            if score > bestscore:
+                bestscore = score
+                bestmove = move
+        else:
+            if score < bestscore:
+                bestscore = score
+                bestmove = move
+
+    return bestmove,bestscore
+
+
+def beterminimax(position, depth, alpha, beta, maximizingPlayer):
+    if depth == 0 or position.gameover():
+        return position.evaluation()
+
+
+    if maximizingPlayer:
+        maxEval = -math.inf
+        for child in position.getNeigboursColor(not maximizingPlayer):
+            newboard = position.copy()
+            newboard.turn(child)
+            eval = minimax(newboard, depth-1,alpha,beta, False)
+            maxEval = max(maxEval, eval)
+            alpha = max(alpha, maxEval)
+            if beta <= alpha:
+                break
+        return maxEval
+
+    else:
+        minEval = math.inf
+        for child in position.getNeigboursColor(not maximizingPlayer):
+            newboard = position.copy()
+            newboard.turn(child)
+            eval = minimax(newboard, depth-1,alpha,beta, True)
+            minEval = min(minEval, eval)
+            beta = min(beta,minEval)
+            if beta <= alpha:
+                break
+        return minEval
 
 
 def minimaxMove(game, depth, maximizingPlayer): # fillerclass , depth, True for player 0 else 1
@@ -197,17 +290,24 @@ def minimax(position, depth, alpha, beta, maximizingPlayer):
 
 
 fillergame = Filler()
+fillergame.reset()
 if len(sys.argv) == 2:
         fillergame.getBoard(sys.argv[1], 1)
-
 
 fillergame.boardprint()
 while True:
     print("-1 for minimax")
     userin = int(input())
     if userin == -1:
-        move,score = minimaxMove(fillergame, 7 , not fillergame.playerturn)
-        print(f" best move {move} with score {score}")
+        oldtime = time.time()
+        move,score = minimaxMove(fillergame, 10 , not fillergame.playerturn)
+        print(f"(old) best move {move} with score {score} it took {round(time.time() - oldtime,2)} seconds")
+
+        oldtime = time.time()
+        print(fillergame.getNeigboursColor(fillergame.playerturn))
+        move,score = beterminimaxMove(fillergame, 10 , not fillergame.playerturn)
+        print(f"(new) best move {move} with score {score} it took {round(time.time() - oldtime,2)} seconds")
+
         userin = int(input())
 
     fillergame.turn(userin)
