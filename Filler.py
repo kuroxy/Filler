@@ -178,60 +178,6 @@ class Filler():
 
 
 
-def beterminimaxMove(game, depth, maximizingPlayer): # fillerclass , depth, True for player 0 else 1
-    bestmove = None
-    if maximizingPlayer:
-        bestscore = -math.inf
-    else:
-        bestscore = math.inf
-
-    for move in game.getNeigboursColor(not maximizingPlayer):
-        newboard = game.copy()
-        newboard.turn(move)
-        score = beterminimax(newboard, depth, -math.inf, math.inf, not maximizingPlayer)
-
-        if maximizingPlayer:
-            if score > bestscore:
-                bestscore = score
-                bestmove = move
-        else:
-            if score < bestscore:
-                bestscore = score
-                bestmove = move
-
-    return bestmove,bestscore
-
-
-def beterminimax(position, depth, alpha, beta, maximizingPlayer):
-    if depth == 0 or position.gameover():
-        return position.evaluation()
-
-
-    if maximizingPlayer:
-        maxEval = -math.inf
-        for child in position.getNeigboursColor(not maximizingPlayer):
-            newboard = position.copy()
-            newboard.turn(child)
-            eval = minimax(newboard, depth-1,alpha,beta, False)
-            maxEval = max(maxEval, eval)
-            alpha = max(alpha, maxEval)
-            if beta <= alpha:
-                break
-        return maxEval
-
-    else:
-        minEval = math.inf
-        for child in position.getNeigboursColor(not maximizingPlayer):
-            newboard = position.copy()
-            newboard.turn(child)
-            eval = minimax(newboard, depth-1,alpha,beta, True)
-            minEval = min(minEval, eval)
-            beta = min(beta,minEval)
-            if beta <= alpha:
-                break
-        return minEval
-
-
 def minimaxMove(game, depth, maximizingPlayer): # fillerclass , depth, True for player 0 else 1
     bestmove = None
     if maximizingPlayer:
@@ -239,7 +185,11 @@ def minimaxMove(game, depth, maximizingPlayer): # fillerclass , depth, True for 
     else:
         bestscore = math.inf
 
-    for move in game.getAvailable():
+    allowmoves = game.getNeigboursColor(not maximizingPlayer)
+    if len(allowmoves)==1:
+        return allowmoves[0], None
+
+    for move in allowmoves:
         newboard = game.copy()
         newboard.turn(move)
         score = minimax(newboard, depth, -math.inf, math.inf, not maximizingPlayer)
@@ -253,8 +203,6 @@ def minimaxMove(game, depth, maximizingPlayer): # fillerclass , depth, True for 
                 bestscore = score
                 bestmove = move
 
-    newboard = game.copy()
-    newboard.turn(bestmove)
     return bestmove,bestscore
 
 
@@ -265,7 +213,7 @@ def minimax(position, depth, alpha, beta, maximizingPlayer):
 
     if maximizingPlayer:
         maxEval = -math.inf
-        for child in position.getAvailable():
+        for child in position.getNeigboursColor(not maximizingPlayer):
             newboard = position.copy()
             newboard.turn(child)
             eval = minimax(newboard, depth-1,alpha,beta, False)
@@ -277,7 +225,7 @@ def minimax(position, depth, alpha, beta, maximizingPlayer):
 
     else:
         minEval = math.inf
-        for child in position.getAvailable():
+        for child in position.getNeigboursColor(not maximizingPlayer):
             newboard = position.copy()
             newboard.turn(child)
             eval = minimax(newboard, depth-1,alpha,beta, True)
@@ -288,30 +236,56 @@ def minimax(position, depth, alpha, beta, maximizingPlayer):
         return minEval
 
 
+def mcts(game, amount, depth):
 
-fillergame = Filler()
-fillergame.reset()
-if len(sys.argv) == 2:
-        fillergame.getBoard(sys.argv[1], 1)
+    allowmoves = game.getNeigboursColor(game.playerturn)
+    if len(allowmoves)==1:
+        return allowmoves[0]
 
-fillergame.boardprint()
-while True:
-    print("-1 for minimax")
-    userin = int(input())
-    if userin == -1:
-        oldtime = time.time()
-        move,score = minimaxMove(fillergame, 10 , not fillergame.playerturn)
-        print(f"(old) best move {move} with score {score} it took {round(time.time() - oldtime,2)} seconds")
+    moveeval = [0 for _ in range(len(allowmoves))]
+    moveevalam = [0 for _ in range(len(allowmoves))]
 
-        oldtime = time.time()
-        print(fillergame.getNeigboursColor(fillergame.playerturn))
-        move,score = beterminimaxMove(fillergame, 10 , not fillergame.playerturn)
-        print(f"(new) best move {move} with score {score} it took {round(time.time() - oldtime,2)} seconds")
+    for moveindex,move in enumerate(allowmoves):
+        newgamemove = game.copy()
+        newgamemove.turn(move)
 
-        userin = int(input())
+        if newgamemove.gameover(): 
+            moveeval[moveindex] += newgamemove.evaluation()
+            moveevalam[moveindex] += 1
+            continue
 
-    fillergame.turn(userin)
-    fillergame.boardprint()
 
-    if fillergame.gameover():
-        break
+        for _ in range(amount):
+            gamecopy = newgamemove.copy()
+
+            for _ in range(depth):
+                ranmove = random.choice(gamecopy.getNeigboursColor(gamecopy.playerturn))
+                gamecopy.turn(ranmove)
+                if gamecopy.gameover():
+                    break
+            
+
+            moveeval[moveindex] += gamecopy.evaluation()
+            moveevalam[moveindex] += 1
+    
+    bestindex = 0
+    
+
+    if game.playerturn==0:
+        bestval = -math.inf 
+        for i in range(len(allowmoves)):
+            moveeval[i] /= moveevalam[i]
+            if moveeval[i] > bestval:
+                bestval = moveeval[i]
+                bestindex = i
+
+    else:
+        bestval = math.inf 
+        for i in range(len(allowmoves)):
+            moveeval[i] /= moveevalam[i]
+            if moveeval[i] < bestval:
+                bestval = moveeval[i]
+                bestindex = i
+
+    return allowmoves[bestindex]
+
